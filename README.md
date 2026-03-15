@@ -40,4 +40,4 @@ On Windows run:
     mvn clean javafx:jlink
     target\hellofx\bin\launcher.bat
 
-Attributors : KyungHyun
+Attributors : KyungHyun, ByeongMun
