@@ -1,3 +1,230 @@
-.button {
-    -fx-text-fill: blue;
+/* ===== SIDEBAR ===== */
+.sidebar {
+    -fx-background-color: #FFFFFF;
+    -fx-min-width: 145px;
+    -fx-max-width: 145px;
+    -fx-pref-width: 145px;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0 1 0 0;
+}
+
+.logo-area {
+    -fx-padding: 16 12 12 12;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0 0 1 0;
+}
+
+.logo-icon {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.logo-title {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.logo-subtitle {
+    -fx-font-size: 9px;
+    -fx-text-fill: #888888;
+}
+
+.nav-item {
+    -fx-padding: 10 12 10 12;
+    -fx-cursor: hand;
+    -fx-alignment: CENTER_LEFT;
+    -fx-min-width: 145px;
+    -fx-max-width: 145px;
+    -fx-background-color: transparent;
+}
+
+.nav-item:hover {
+    -fx-background-color: #F5F5F5;
+}
+
+.nav-item-selected {
+    -fx-background-color: #EEF2FF;
+}
+
+.nav-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #333333;
+}
+
+.history-item {
+    -fx-padding: 6 12 6 20;
+    -fx-cursor: hand;
+    -fx-alignment: CENTER_LEFT;
+    -fx-min-width: 145px;
+    -fx-max-width: 145px;
+    -fx-background-color: transparent;
+}
+
+.history-item:hover {
+    -fx-background-color: #F5F5F5;
+}
+
+.history-date {
+    -fx-font-size: 10px;
+    -fx-text-fill: #888888;
+}
+
+.history-filename {
+    -fx-font-size: 11px;
+    -fx-text-fill: #333333;
+}
+
+/* ===== UPLOAD SCREEN ===== */
+.main-content {
+    -fx-background-color: #E8E8E8;
+}
+
+.upload-title {
+    -fx-font-size: 20px;
+    -fx-text-fill: #AAAAAA;
+}
+
+.upload-field {
+    -fx-background-color: white;
+    -fx-border-color: #CCCCCC;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-pref-width: 260px;
+    -fx-pref-height: 36px;
+    -fx-padding: 0 8 0 8;
+    -fx-font-size: 12px;
+}
+
+.analyse-button {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+    -fx-background-radius: 4;
+    -fx-pref-height: 36px;
+    -fx-pref-width: 90px;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+}
+
+.analyse-button:hover {
+    -fx-background-color: #1D4ED8;
+}
+
+.option-checkbox {
+    -fx-font-size: 12px;
+    -fx-text-fill: #444444;
+}
+
+/* ===== RESULTS SCREEN ===== */
+.results-root {
+    -fx-background-color: white;
+}
+
+.results-header {
+    -fx-background-color: white;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 10 16 0 16;
+    -fx-spacing: 4;
+}
+
+.back-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #555555;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 0;
+}
+
+.back-button:hover {
+    -fx-text-fill: #000000;
+}
+
+.breadcrumb-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #555555;
+    -fx-padding: 2 0 4 0;
+}
+
+.tab-bar {
+    -fx-spacing: 4;
+    -fx-padding: 6 0 0 0;
+}
+
+.tab-active {
+    -fx-background-color: #22C55E;
+    -fx-text-fill: white;
+    -fx-background-radius: 20;
+    -fx-padding: 4 16 4 16;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.tab-inactive {
+    -fx-background-color: transparent;
+    -fx-text-fill: #444444;
+    -fx-background-radius: 20;
+    -fx-padding: 4 16 4 16;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.tab-inactive:hover {
+    -fx-background-color: #F0F0F0;
+}
+
+.results-scroll {
+    -fx-background-color: white;
+    -fx-background: white;
+}
+
+.results-container {
+    -fx-padding: 16;
+    -fx-spacing: 12;
+    -fx-background-color: white;
+}
+
+.result-card {
+    -fx-background-color: #2D2D2D;
+    -fx-background-radius: 8;
+    -fx-padding: 16;
+    -fx-min-height: 90;
+}
+
+.result-card-text {
+    -fx-text-fill: #CCCCCC;
+    -fx-wrap-text: true;
+    -fx-font-size: 12px;
+}
+
+/* ===== CHAT BAR ===== */
+.chat-area {
+    -fx-background-color: white;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 12 16 12 16;
+    -fx-spacing: 8;
+}
+
+.chat-field {
+    -fx-background-color: #F5F5F5;
+    -fx-border-color: #E0E0E0;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-pref-height: 36px;
+    -fx-padding: 0 8 0 8;
+    -fx-font-size: 12px;
+}
+
+.chat-search-button {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+    -fx-background-radius: 4;
+    -fx-pref-height: 36px;
+    -fx-pref-width: 80px;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+}
+
+.chat-search-button:hover {
+    -fx-background-color: #1D4ED8;
 }

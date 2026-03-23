@@ -4,30 +4,49 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.geometry.Insets?>
 
-<BorderPane xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.openjfx.hellofx.SecondaryController">
-    <center>
-        <VBox alignment="CENTER" spacing="10.0">
-            <children>
-                <Label text="Results" />
-                <TextArea fx:id="resultsTextArea" prefHeight="400.0" prefWidth="600.0" wrapText="true" editable="false" />
-            </children>
-            <padding>
-                <Insets top="10.0" right="10.0" bottom="10.0" left="10.0" />
-            </padding>
+<BorderPane xmlns="http://javafx.com/javafx/8.0.171"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.openjfx.hellofx.SecondaryController"
+            prefWidth="1100" prefHeight="750"
+            styleClass="results-root">
+
+    <!-- 헤더 (뒤로가기 + 파일명 + 탭) -->
+    <top>
+        <VBox styleClass="results-header">
+            <Button text="← Menu" styleClass="back-button" onAction="#switchToPrimary"/>
+            <Label fx:id="breadcrumbLabel" text="" styleClass="breadcrumb-label"/>
+            <HBox styleClass="tab-bar">
+                <Button fx:id="tabSuspected" text="Suspected Logs"
+                        styleClass="tab-active" onAction="#handleTabSuspected"/>
+                <Button fx:id="tabAnomaly" text="Anomaly Detect"
+                        styleClass="tab-inactive" onAction="#handleTabAnomaly"/>
+                <Button fx:id="tabInsights" text="Log Insights"
+                        styleClass="tab-inactive" onAction="#handleTabInsights"/>
+            </HBox>
         </VBox>
+    </top>
+
+    <!-- 결과 카드 목록 -->
+    <center>
+        <ScrollPane fitToWidth="true" styleClass="results-scroll"
+                    style="-fx-background-color: white; -fx-background: white;">
+            <VBox fx:id="resultsContainer" styleClass="results-container"/>
+        </ScrollPane>
     </center>
+
+    <!-- 채팅 입력 -->
     <bottom>
-        <HBox alignment="CENTER">
-            <children>
-                <Button text="뒤로가기" onAction="#switchToPrimary" />
-            </children>
-            <padding>
-                <Insets top="10.0" right="10.0" bottom="20.0" left="10.0" />
-            </padding>
+        <HBox styleClass="chat-area" alignment="CENTER">
+            <TextField fx:id="chatField" styleClass="chat-field"
+                       promptText="분석결과에 대해 자세하게 물어보세요"
+                       HBox.hgrow="ALWAYS"/>
+            <Button text="Search" styleClass="chat-search-button" onAction="#handleChatSearch"/>
         </HBox>
     </bottom>
+
 </BorderPane>

@@ -2,80 +2,115 @@ package org.openjfx.hellofx;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import javafx.collections.ObservableList;
+import java.time.LocalDate;
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ListView;
-import javafx.scene.control.SelectionMode;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
 public class PrimaryController {
 
-    @FXML
-    private ListView<String> fileListView;
+    @FXML private HBox navAnalyze;
+    @FXML private HBox navHistory;
+    @FXML private VBox historyList;
+    @FXML private TextField filePathField;
+    @FXML private CheckBox checkSuspectedLogs;
+    @FXML private CheckBox checkAnomalyDetect;
+    @FXML private CheckBox checkLogInsights;
 
     @FXML
     private void initialize() {
-        fileListView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        fileListView.setPlaceholder(new javafx.scene.control.Label("No files added"));
+        refreshHistoryList();
     }
 
-    @FXML
-    private void handleAddFile() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Add Files");
-        List<File> files = fileChooser.showOpenMultipleDialog(fileListView.getScene().getWindow());
-        if (files != null) {
-            ObservableList<String> items = fileListView.getItems();
-            for (File f : files) {
-                String path = f.getAbsolutePath();
-                if (!items.contains(path)) {
-                    items.add(path);
-                }
-            }
+    private void refreshHistoryList() {
+        historyList.getChildren().clear();
+        for (String[] entry : App.history) {
+            VBox item = new VBox(2);
+            item.getStyleClass().add("history-item");
+
+            Label dateLabel = new Label(entry[0]);
+            dateLabel.getStyleClass().add("history-date");
+
+            Label fileLabel = new Label(entry[1]);
+            fileLabel.getStyleClass().add("history-filename");
+            fileLabel.setMaxWidth(130);
+            fileLabel.setWrapText(false);
+            fileLabel.setEllipsisString("...");
+
+            item.getChildren().addAll(dateLabel, fileLabel);
+
+            final String[] ref = entry;
+            item.setOnMouseClicked(e -> openHistoryItem(ref));
+            historyList.getChildren().add(item);
+        }
+    }
+
+    private void openHistoryItem(String[] entry) {
+        App.currentDate = entry[0];
+        App.currentFile = entry[1];
+        try {
+            App.setRoot("secondary");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
     @FXML
-    private void handleDeleteFile() {
-        List<String> toRemove = new ArrayList<>(fileListView.getSelectionModel().getSelectedItems());
-        if (!toRemove.isEmpty()) {
-            fileListView.getItems().removeAll(toRemove);
-        }
+    private void handleNavAnalyze() {
+        navAnalyze.getStyleClass().add("nav-item-selected");
+        navHistory.getStyleClass().remove("nav-item-selected");
+    }
+
+    @FXML
+    private void handleNavHistory() {
+        navHistory.getStyleClass().add("nav-item-selected");
+        navAnalyze.getStyleClass().remove("nav-item-selected");
+    }
+
+    @FXML
+    private void handleFieldClick(MouseEvent e) {
+        openFileChooser();
     }
 
     @FXML
     private void handleAnalyze() {
-        ObservableList<String> items = fileListView.getItems();
-        if (items.isEmpty()) {
-            Alert a = new Alert(Alert.AlertType.INFORMATION);
-            a.setTitle("Analyze");
-            a.setHeaderText(null);
-            a.setContentText("No files to analyze.");
-            a.showAndWait();
-            return;
+        String path = filePathField.getText().trim();
+        if (path.isEmpty()) {
+            path = openFileChooser();
+            if (path == null) return;
         }
 
-        Alert a = new Alert(Alert.AlertType.INFORMATION);
-        a.setTitle("Analyze");
-        a.setHeaderText(null);
-        a.setContentText("Analyzing " + items.size() + " files...");
-        a.showAndWait();
+        String date = LocalDate.now().toString();
+        String filename = new File(path).getName();
 
-        // Temporary: print file list to console
-        items.forEach(System.out::println);
+        App.history.add(0, new String[]{date, filename});
+        App.currentFile = filename;
+        App.currentDate = date;
+
+        try {
+            App.setRoot("secondary");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    @FXML
-    private void handleViewResults() throws IOException {
-        // Switch to the results view (secondary.fxml)
-        App.setRoot("secondary");
-    }
-
-    @FXML
-    private void switchToSecondary() throws IOException {
-        App.setRoot("secondary");
+    private String openFileChooser() {
+        FileChooser fc = new FileChooser();
+        fc.setTitle("로그 파일 선택");
+        fc.getExtensionFilters().addAll(
+            new FileChooser.ExtensionFilter("Log Files", "*.log", "*.txt", "*.dat"),
+            new FileChooser.ExtensionFilter("All Files", "*.*")
+        );
+        File file = fc.showOpenDialog(filePathField.getScene().getWindow());
+        if (file != null) {
+            filePathField.setText(file.getAbsolutePath());
+            return file.getAbsolutePath();
+        }
+        return null;
     }
 }

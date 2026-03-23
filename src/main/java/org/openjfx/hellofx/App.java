@@ -7,6 +7,8 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * JavaFX App
@@ -15,11 +17,17 @@ public class App extends Application {
 
     private static Scene scene;
 
+    // 컨트롤러 간 공유 데이터
+    static List<String[]> history = new ArrayList<>(); // [날짜, 파일명]
+    static String currentFile = "";
+    static String currentDate = "";
+
     @Override
     public void start(Stage stage) throws IOException {
-        scene = new Scene(loadFXML("primary"));
+        scene = new Scene(loadFXML("primary"), 1100, 750);
         scene.getStylesheets().add(getClass().getResource("styles.css").toExternalForm());
         stage.setScene(scene);
+        stage.setTitle("LogAnalyzer");
         stage.show();
     }
 
