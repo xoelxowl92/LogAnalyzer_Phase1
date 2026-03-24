@@ -21,6 +21,7 @@ public class App extends Application {
     static List<String[]> history = new ArrayList<>(); // [날짜, 파일명]
     static String currentFile = "";
     static String currentDate = "";
+    static String currentResult = "";
 
     @Override
     public void start(Stage stage) throws IOException {

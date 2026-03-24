@@ -11,6 +11,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Window;
 
 public class PrimaryController {
 
@@ -79,11 +80,13 @@ public class PrimaryController {
 
     @FXML
     private void handleAnalyze() {
-        String path = filePathField.getText().trim();
-        if (path.isEmpty()) {
-            path = openFileChooser();
-            if (path == null) return;
-        }
+        // TODO: 파일 업로드 창 임시 주석처리 - API 테스트용
+        // String path = filePathField.getText().trim();
+        // if (path.isEmpty()) {
+        //     path = openFileChooser();
+        //     if (path == null) return;
+        // }
+        String path = "test_dummy.log"; // API 테스트용 더미 파일명
 
         String date = LocalDate.now().toString();
         String filename = new File(path).getName();

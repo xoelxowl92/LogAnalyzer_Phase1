@@ -44,6 +44,7 @@
         <HBox styleClass="chat-area" alignment="CENTER">
             <TextField fx:id="chatField" styleClass="chat-field"
                        promptText="분석결과에 대해 자세하게 물어보세요"
+                       onAction="#handleChatSearch"
                        HBox.hgrow="ALWAYS"/>
             <Button text="Search" styleClass="chat-search-button" onAction="#handleChatSearch"/>
         </HBox>
