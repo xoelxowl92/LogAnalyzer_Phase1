@@ -23,11 +23,14 @@ public class PrimaryController {
     @FXML private CheckBox checkAnomalyDetect;
     @FXML private CheckBox checkLogInsights;
 
+    // FXML이 로드된 직후 자동 호출 — 사이드바 히스토리 목록 초기 렌더링
     @FXML
     private void initialize() {
         refreshHistoryList();
     }
 
+    // initialize() 및 Secondary → Primary 복귀 시 호출
+    // App.history를 순회하며 날짜/파일명 카드를 historyList에 렌더링
     private void refreshHistoryList() {
         historyList.getChildren().clear();
         for (String[] entry : App.history) {
@@ -51,6 +54,8 @@ public class PrimaryController {
         }
     }
 
+    // refreshHistoryList()에서 히스토리 아이템 클릭 시 호출
+    // App에 날짜/파일명 세팅 후 Secondary 화면으로 이동
     private void openHistoryItem(String[] entry) {
         App.currentDate = entry[0];
         App.currentFile = entry[1];
@@ -61,26 +66,31 @@ public class PrimaryController {
         }
     }
 
+    // FXML: 사이드바 Analyze 메뉴 클릭 시 호출 — 선택 스타일 토글
     @FXML
     private void handleNavAnalyze() {
         navAnalyze.getStyleClass().add("nav-item-selected");
         navHistory.getStyleClass().remove("nav-item-selected");
     }
 
+    // FXML: 사이드바 History 메뉴 클릭 시 호출 — 선택 스타일 토글
     @FXML
     private void handleNavHistory() {
         navHistory.getStyleClass().add("nav-item-selected");
         navAnalyze.getStyleClass().remove("nav-item-selected");
     }
 
+    // FXML: 파일 경로 입력 필드 클릭 시 호출 — 파일 선택 다이얼로그 오픈
     @FXML
     private void handleFieldClick(MouseEvent e) {
         openFileChooser();
     }
 
+    // FXML: Analyze 버튼 클릭 시 호출
+    // TODO: 파일 업로드 창 임시 주석처리 - API 테스트용
+    // 현재는 더미 파일명으로 App에 세팅 후 Secondary 화면으로 이동
     @FXML
     private void handleAnalyze() {
-        // TODO: 파일 업로드 창 임시 주석처리 - API 테스트용
         // String path = filePathField.getText().trim();
         // if (path.isEmpty()) {
         //     path = openFileChooser();
@@ -102,6 +112,8 @@ public class PrimaryController {
         }
     }
 
+    // handleFieldClick()에서 호출 — 파일 선택 다이얼로그 표시
+    // 선택된 파일 경로를 filePathField에 세팅하고 반환, 취소 시 null 반환
     private String openFileChooser() {
         FileChooser fc = new FileChooser();
         fc.setTitle("로그 파일 선택");

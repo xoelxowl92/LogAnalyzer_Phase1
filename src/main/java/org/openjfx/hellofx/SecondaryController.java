@@ -28,12 +28,16 @@ public class SecondaryController {
 
     private String conversationId = "";
 
+    // FXML이 로드된 직후 자동 호출 — 브레드크럼 설정 후 첫 API 호출
     @FXML
     private void initialize() {
         breadcrumbLabel.setText(App.currentDate + "_" + App.currentFile);
         callChatApi("Hello World!!");
     }
 
+    // initialize() 또는 handleChatSearch()에서 호출
+    // query를 Dify chat-messages API로 POST, 응답의 answer/conversation_id 파싱
+    // conversation_id를 저장해 이후 호출에서 대화 컨텍스트 유지
     private void callChatApi(String query) {
         Thread thread = new Thread(() -> {
             try {
@@ -94,6 +98,8 @@ public class SecondaryController {
         thread.start();
     }
 
+    // callChatApi()에서 응답 수신 후 JavaFX 스레드에서 호출
+    // isUser=true → 오른쪽 파란 말풍선 (내 질문), false → 왼쪽 회색 말풍선 (AI 답변)
     private void addBubble(String text, boolean isUser) {
         Label bubble = new Label(text);
         bubble.getStyleClass().add(isUser ? "bubble-right" : "bubble-left");
@@ -101,34 +107,8 @@ public class SecondaryController {
         row.getStyleClass().add(isUser ? "bubble-row-right" : "bubble-row-left");
         resultsContainer.getChildren().add(row);
     }
-
-    private void showApiResult(int status, String response) {
-        resultsContainer.getChildren().clear();
-        VBox card = new VBox();
-        card.getStyleClass().add("result-card");
-        Label statusLabel = new Label("HTTP " + status);
-        statusLabel.getStyleClass().add("history-date");
-        Label text = new Label(response);
-        text.getStyleClass().add("result-card-text");
-        text.setWrapText(true);
-        card.getChildren().addAll(statusLabel, text);
-        resultsContainer.getChildren().add(card);
-    }
-
-    private void loadTab(String tab) {
-        resultsContainer.getChildren().clear();
-        // 분석 로직 구현 전 플레이스홀더 카드 3개
-        for (int i = 0; i < 3; i++) {
-            VBox card = new VBox();
-            card.getStyleClass().add("result-card");
-            Label text = new Label("분석 결과가 여기에 표시됩니다. [" + tab + " #" + (i + 1) + "]");
-            text.getStyleClass().add("result-card-text");
-            text.setWrapText(true);
-            card.getChildren().add(text);
-            resultsContainer.getChildren().add(card);
-        }
-    }
-
+    
+    // setActiveTab()에서 호출 — 선택된 탭만 active 스타일 적용
     private void setActiveTab(Button active) {
         for (Button btn : new Button[]{tabSuspected, tabAnomaly, tabInsights}) {
             btn.getStyleClass().setAll("tab-inactive");
@@ -136,24 +116,25 @@ public class SecondaryController {
         active.getStyleClass().setAll("tab-active");
     }
 
+    // FXML: Suspected Logs 탭 클릭 시 호출
     @FXML
     private void handleTabSuspected() {
         setActiveTab(tabSuspected);
-        loadTab("suspected");
     }
 
+    // FXML: Anomaly Detect 탭 클릭 시 호출
     @FXML
     private void handleTabAnomaly() {
         setActiveTab(tabAnomaly);
-        loadTab("anomaly");
     }
 
+    // FXML: Log Insights 탭 클릭 시 호출
     @FXML
     private void handleTabInsights() {
         setActiveTab(tabInsights);
-        loadTab("insights");
     }
 
+    // FXML: Search 버튼 클릭 또는 채팅 입력창에서 Enter 시 호출
     @FXML
     private void handleChatSearch() {
         String query = chatField.getText().trim();
@@ -163,6 +144,7 @@ public class SecondaryController {
         }
     }
 
+    // FXML: ← Menu 버튼 클릭 시 호출 — Primary 화면으로 복귀
     @FXML
     private void switchToPrimary() throws IOException {
         App.setRoot("primary");
