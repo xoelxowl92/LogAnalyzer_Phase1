@@ -2,6 +2,7 @@ package org.openjfx.hellofx;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
@@ -87,23 +88,22 @@ public class PrimaryController {
     }
 
     // FXML: Analyze 버튼 클릭 시 호출
-    // TODO: 파일 업로드 창 임시 주석처리 - API 테스트용
-    // 현재는 더미 파일명으로 App에 세팅 후 Secondary 화면으로 이동
+    // 파일 경로가 없으면 FileChooser 오픈, 선택된 파일을 App에 세팅 후 Secondary 화면으로 이동
     @FXML
     private void handleAnalyze() {
-        // String path = filePathField.getText().trim();
-        // if (path.isEmpty()) {
-        //     path = openFileChooser();
-        //     if (path == null) return;
-        // }
-        String path = "test_dummy.log"; // API 테스트용 더미 파일명
+        String path = filePathField.getText().trim();
+        if (path.isEmpty()) {
+            path = openFileChooser();
+            if (path == null) return;
+        }
 
         String date = LocalDate.now().toString();
-        String filename = new File(path).getName();
+        String filename = Normalizer.normalize(new File(path).getName(), Normalizer.Form.NFC);
 
         App.history.add(0, new String[]{date, filename});
         App.currentFile = filename;
         App.currentDate = date;
+        App.currentFilePath = path;
 
         try {
             App.setRoot("secondary");

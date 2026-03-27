@@ -22,6 +22,7 @@ public class App extends Application {
     static String currentFile = "";
     static String currentDate = "";
     static String currentResult = "";
+    static String currentFilePath = ""; // 업로드할 파일의 전체 경로
 
     @Override
     public void start(Stage stage) throws IOException {
