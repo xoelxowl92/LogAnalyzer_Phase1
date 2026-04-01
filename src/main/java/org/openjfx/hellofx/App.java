@@ -24,6 +24,11 @@ public class App extends Application {
     static String currentResult = "";
     static String currentFilePath = ""; // 업로드할 파일의 전체 경로
 
+    // 체크박스 선택 상태
+    static boolean runSuspected = false;
+    static boolean runAnomaly   = false;
+    static boolean runInsights  = false;
+
     @Override
     public void start(Stage stage) throws IOException {
         scene = new Scene(loadFXML("primary"), 1100, 750);

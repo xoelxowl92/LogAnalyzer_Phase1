@@ -88,9 +88,13 @@ public class PrimaryController {
     }
 
     // FXML: Analyze 버튼 클릭 시 호출
-    // 파일 경로가 없으면 FileChooser 오픈, 선택된 파일을 App에 세팅 후 Secondary 화면으로 이동
+    // 체크박스 미선택 시 차단, 파일 경로 없으면 FileChooser 오픈, App에 세팅 후 Secondary 화면으로 이동
     @FXML
     private void handleAnalyze() {
+        if (!checkSuspectedLogs.isSelected() && !checkAnomalyDetect.isSelected() && !checkLogInsights.isSelected()) {
+            return;
+        }
+
         String path = filePathField.getText().trim();
         if (path.isEmpty()) {
             path = openFileChooser();
@@ -104,6 +108,9 @@ public class PrimaryController {
         App.currentFile = filename;
         App.currentDate = date;
         App.currentFilePath = path;
+        App.runSuspected = checkSuspectedLogs.isSelected();
+        App.runAnomaly   = checkAnomalyDetect.isSelected();
+        App.runInsights  = checkLogInsights.isSelected();
 
         try {
             App.setRoot("secondary");
