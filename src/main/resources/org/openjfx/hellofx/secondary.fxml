@@ -34,7 +34,8 @@
     <!-- 결과 카드 목록 -->
     <center>
         <ScrollPane fitToWidth="true" styleClass="results-scroll"
-                    style="-fx-background-color: white; -fx-background: white;">
+                    style="-fx-background-color: white; -fx-background: white;"
+                    prefHeight="0">
             <VBox fx:id="resultsContainer" styleClass="results-container">
                 <VBox fx:id="containerSuspected"/>
                 <VBox fx:id="containerAnomaly"/>
