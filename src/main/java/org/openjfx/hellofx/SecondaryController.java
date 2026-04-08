@@ -14,6 +14,9 @@ import java.nio.file.Files;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.json.JSONArray;
+
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -81,6 +84,18 @@ public class SecondaryController {
     private void uploadFile() {
         Thread thread = new Thread(() -> {
             try {
+                // 1. 전처리 실행
+                LogPreprocessor preprocessor = new LogPreprocessor();
+                JSONArray preprocessed = preprocessor.processFile(App.currentFilePath);
+                String preprocessedText = preprocessed.toString(2); // pretty-print JSON
+
+                System.out.println("=== 전처리 결과 ===");
+                System.out.println(preprocessedText);
+
+                // 2. 전처리 결과를 파일로 임시 저장 후 업로드
+                java.io.File tempFile = java.io.File.createTempFile("preprocessed_", ".json");
+                java.nio.file.Files.writeString(tempFile.toPath(), preprocessedText);
+
                 Properties props = new Properties();
                 try (InputStream in = getClass().getResourceAsStream("/application-dev.properties")) {
                     props.load(in);
@@ -89,7 +104,7 @@ public class SecondaryController {
                 String baseUrl    = props.getProperty("api.base-url");
                 String uploadPath = props.getProperty("api.upload.path");
                 String user       = props.getProperty("api.user");
-
+                /*
                 File file = new File(App.currentFilePath);
                 String boundary = "----FormBoundary" + System.currentTimeMillis();
                 byte[] fileBytes = Files.readAllBytes(file.toPath());
@@ -115,6 +130,28 @@ public class SecondaryController {
                     os.write(fileBytes);
                     os.write("\r\n".getBytes(StandardCharsets.UTF_8));
 
+                */
+                String boundary = "----FormBoundary" + System.currentTimeMillis();
+                byte[] fileBytes = java.nio.file.Files.readAllBytes(tempFile.toPath());
+
+                HttpURLConnection conn = (HttpURLConnection) URI.create(baseUrl + uploadPath).toURL().openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Authorization", tokenSuspected);
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+                conn.setDoOutput(true);
+
+                try (OutputStream os = conn.getOutputStream()) {
+                    String userPart = "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"user\"\r\n\r\n"
+                        + user + "\r\n";
+                    os.write(userPart.getBytes(StandardCharsets.UTF_8));
+
+                    String filePart = "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"file\"; filename=\"preprocessed.json\"\r\n"
+                        + "Content-Type: application/json\r\n\r\n";
+                    os.write(filePart.getBytes(StandardCharsets.UTF_8));
+                    os.write(fileBytes);
+                    os.write("\r\n".getBytes(StandardCharsets.UTF_8));
                     os.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
                 }
 
@@ -129,14 +166,17 @@ public class SecondaryController {
                 ObjectMapper mapper = new ObjectMapper();
                 uploadFileId = mapper.readTree(response).path("id").asText("");
 
-                // 체크된 탭마다 초기 분석 요청 (사용자 버블 미표시)
+                tempFile.deleteOnExit(); // 임시 파일 정리
+
+                // 3. 탭별 초기 분석 요청
                 if (App.runSuspected) callChatApi("오류는 아닌데, 오류로 추정되는 로그확인해주고 결과를 잘 보여줘", true, tokenSuspected, "suspected", containerSuspected);
-                if (App.runAnomaly)   callChatApi("이상 징후 확인해서 알려줘 결과를 잘 보여줘", true, tokenAnomaly,   "anomaly",   containerAnomaly);
-                if (App.runInsights)  callChatApi("어떻게 수정해야 더 좋은 로그파일을 만들 수 있을지 알려줘 결과를 잘 보여줘", true, tokenInsights,  "insights",  containerInsights);
+                if (App.runAnomaly)   callChatApi("이상 징후 확인해서 알려줘 결과를 잘 보여줘", true, tokenAnomaly, "anomaly", containerAnomaly);
+                if (App.runInsights)  callChatApi("어떻게 수정해야 더 좋은 로그파일을 만들 수 있을지 알려줘 결과를 잘 보여줘", true, tokenInsights, "insights", containerInsights);
 
             } catch (Exception e) {
-                System.err.println("파일 업로드 오류: " + e.getMessage());
-                Platform.runLater(() -> addBubble("[업로드 오류] " + e.getMessage(), false, activeContainer));
+                System.err.println("전처리/업로드 오류: " + e.getMessage());
+                if (activeContainer != null)
+                    Platform.runLater(() -> addBubble("[오류] " + e.getMessage(), false, activeContainer));
             }
         });
         thread.setDaemon(true);
@@ -167,7 +207,7 @@ public class SecondaryController {
                 try (InputStream in = getClass().getResourceAsStream("/application-dev.properties")) {
                     props.load(in);
                 }
-
+                
                 String baseUrl      = props.getProperty("api.base-url");
                 String chatPath     = props.getProperty("api.chat.path");
                 String user         = props.getProperty("api.user");
@@ -185,7 +225,7 @@ public class SecondaryController {
                     uploadedFile.put("transfer_method", "local_file");
                     uploadedFile.put("upload_file_id", uploadFileId);
                 }
-
+                
                 bodyNode.put("query", query);
                 bodyNode.put("response_mode", responseMode);
                 bodyNode.put("user", user);

@@ -282,6 +282,8 @@ public class LogPreprocessor {
         return obj;
     }
 
+    // =========================
+    // 로그 레벨 필터링
     private boolean isSkip(String level) {
         return "DEBUG".equalsIgnoreCase(level) || "TRACE".equalsIgnoreCase(level);
     }
