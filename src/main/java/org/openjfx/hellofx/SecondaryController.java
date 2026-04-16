@@ -147,7 +147,7 @@ public class SecondaryController {
                     os.write(userPart.getBytes(StandardCharsets.UTF_8));
 
                     String filePart = "--" + boundary + "\r\n"
-                        + "Content-Disposition: form-data; name=\"file\"; filename=\"preprocessed.json\"\r\n"
+                        + "Content-Disposition: form-data; name=\"file\"; filename=\"preprocessed.txt\"\r\n"
                         + "Content-Type: application/json\r\n\r\n";
                     os.write(filePart.getBytes(StandardCharsets.UTF_8));
                     os.write(fileBytes);

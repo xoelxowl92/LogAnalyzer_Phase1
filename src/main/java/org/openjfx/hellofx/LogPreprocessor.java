@@ -11,7 +11,9 @@ import java.util.regex.*;
 
 public class LogPreprocessor {
 
-    // 패턴 + 처리 로직 같이 관리
+    // =========================
+    // 패턴 구조
+    // =========================
     private static class LogPattern {
         Pattern pattern;
         Handler handler;
@@ -29,11 +31,43 @@ public class LogPreprocessor {
     private List<LogPattern> patterns = new ArrayList<>();
     private LogPatternExtractor extractor = new LogPatternExtractor();
 
+    // =========================
+    // ⭐ 중복 제거 관련
+    // =========================
+    private Set<String> seenLogs = new HashSet<>();
+    private Map<String, Integer> templateCount = new HashMap<>();
+
+    private static final int MAX_TEMPLATE_REPEAT = 50;
+    private static final int MAX_BURST = 5;
+
+    private String lastLog = "";
+    private int burstCount = 0;
+
+    // =========================
+    // 생성자
+    // =========================
     public LogPreprocessor() {
 
-        // =========================
-        // 1️⃣ Spring Logback
-        // =========================
+        // 1️ JSON
+        patterns.add(new LogPattern(
+            Pattern.compile("^\\{.*\\}$"),
+            (m, log) -> {
+                try {
+                    JSONObject json = new JSONObject(log);
+                    String level = json.optString("level");
+
+                    if (isSkip(level)) return null;
+
+                    JSONObject obj = new JSONObject();
+                    obj.put("message", json.optString("message", log));
+                    return obj;
+                } catch (Exception e) {
+                    return null;
+                }
+            }
+        ));
+
+        // 2️ Spring Logback
         patterns.add(new LogPattern(
             Pattern.compile(
                 "^(\\d{4}-\\d{2}-\\d{2} .*?)\\s+" +
@@ -41,8 +75,7 @@ public class LogPreprocessor {
                 "\\[(.*?)\\]\\s+([\\w\\.$]+)\\s+:\\s+(.*)$"
             ),
             (m, log) -> {
-                String level = m.group(2);
-                if (isSkip(level)) return null;
+                if (isSkip(m.group(2))) return null;
 
                 JSONObject obj = new JSONObject();
                 obj.put("message", m.group(5));
@@ -50,17 +83,14 @@ public class LogPreprocessor {
             }
         ));
 
-        // =========================
-        // 2️⃣ Simple Logback
-        // =========================
+        // 3️ Simple Logback
         patterns.add(new LogPattern(
             Pattern.compile(
                 "^(\\d{4}-\\d{2}-\\d{2} .*?)\\s+\\[(.*?)\\]\\s+" +
                 "(TRACE|DEBUG|INFO|WARN|ERROR)\\s+([\\w\\.$]+)\\s+-\\s+(.*)$"
             ),
             (m, log) -> {
-                String level = m.group(3);
-                if (isSkip(level)) return null;
+                if (isSkip(m.group(3))) return null;
 
                 JSONObject obj = new JSONObject();
                 obj.put("message", m.group(5));
@@ -68,23 +98,7 @@ public class LogPreprocessor {
             }
         ));
 
-        // =========================
-        // 3️⃣ Apache / Nginx
-        // =========================
-        patterns.add(new LogPattern(
-            Pattern.compile(
-                "^(\\S+) \\S+ \\S+ \\[(.*?)\\] \"(GET|POST|PUT|DELETE).*?\" (\\d{3}) (\\d+)"
-            ),
-            (m, log) -> {
-                JSONObject obj = new JSONObject();
-                obj.put("message", "http " + m.group(3) + " " + m.group(4));
-                return obj;
-            }
-        ));
-
-        // =========================
-        // 4️⃣ Python 로그
-        // =========================
+        // 4️ Python
         patterns.add(new LogPattern(
             Pattern.compile(
                 "^(\\d{4}-\\d{2}-\\d{2} .*?) - (INFO|ERROR|WARN|DEBUG) - (.*)$"
@@ -98,9 +112,7 @@ public class LogPreprocessor {
             }
         ));
 
-        // =========================
-        // 5️⃣ Node (Winston)
-        // =========================
+        // 5️ Node
         patterns.add(new LogPattern(
             Pattern.compile("^(info|error|warn|debug):\\s+(.*)$"),
             (m, log) -> {
@@ -112,48 +124,34 @@ public class LogPreprocessor {
             }
         ));
 
-        // =========================
-        // 6️⃣ JSON 로그
-        // =========================
+        // 6️ HTTP
         patterns.add(new LogPattern(
-            Pattern.compile("^\\{.*\\}$"),
+            Pattern.compile(
+                "^(\\S+) \\S+ \\S+ \\[(.*?)\\] \"(GET|POST|PUT|DELETE).*?\" (\\d{3}) (\\d+)"
+            ),
             (m, log) -> {
-                try {
-                    JSONObject json = new JSONObject(log);
-
-                    String level = json.optString("level");
-                    if (isSkip(level)) return null;
-
-                    JSONObject obj = new JSONObject();
-                    obj.put("message", json.optString("message", log));
-                    return obj;
-
-                } catch (Exception e) {
-                    return null;
-                }
+                JSONObject obj = new JSONObject();
+                obj.put("message", "http " + m.group(3) + " " + m.group(4));
+                return obj;
             }
         ));
 
-        // =========================
-        // 7️⃣ Key=Value 로그
-        // =========================
+        // 7️ Exception
+        patterns.add(new LogPattern(
+            Pattern.compile(".*(Exception|Error|Caused by).*"),
+            (m, log) -> {
+                JSONObject obj = new JSONObject();
+                obj.put("message", "exception occurred");
+                return obj;
+            }
+        ));
+
+        // 8️ Key=Value
         patterns.add(new LogPattern(
             Pattern.compile("^(\\w+=.+)$"),
             (m, log) -> {
                 JSONObject obj = new JSONObject();
                 obj.put("message", log);
-                return obj;
-            }
-        ));
-
-        // =========================
-        // 8️⃣ Exception fallback
-        // =========================
-        patterns.add(new LogPattern(
-            Pattern.compile("^(java\\.|org\\.).*Exception.*"),
-            (m, log) -> {
-                JSONObject obj = new JSONObject();
-                obj.put("message", "exception occurred");
                 return obj;
             }
         ));
@@ -174,13 +172,48 @@ public class LogPreprocessor {
 
                 if (log.trim().isEmpty()) continue;
 
+                //  노이즈 제거
+                if (isNoise(log)) continue;
+
                 JSONObject parsed = parse(log);
                 if (parsed == null) continue;
 
                 String normalized = parsed.getString("normalized");
+
+                // =========================
+                // 1️ 완전 중복 제거
+                // =========================
+                if (seenLogs.contains(normalized)) continue;
+                seenLogs.add(normalized);
+
+                // =========================
+                // 2️ burst 제거
+                // =========================
+                if (normalized.equals(lastLog)) {
+                    burstCount++;
+                    if (burstCount > MAX_BURST) continue;
+                } else {
+                    lastLog = normalized;
+                    burstCount = 0;
+                }
+
+                // =========================
+                // 3️ 의미 없는 로그 제거
+                // =========================
+                if (normalized.length() < 5) continue;
+                if (normalized.equals("ok")) continue;
+
                 String event = parsed.getString("event");
 
                 String template = extractor.addLog(normalized);
+
+                // =========================
+                // 4️ 템플릿 반복 제한
+                // =========================
+                int count = templateCount.getOrDefault(template, 0);
+                if (count > MAX_TEMPLATE_REPEAT) continue;
+                templateCount.put(template, count + 1);
+
                 int templateId = extractor.getTemplateId(template);
 
                 JSONObject ai = new JSONObject();
@@ -210,7 +243,6 @@ public class LogPreprocessor {
             Matcher m = lp.pattern.matcher(log);
 
             if (m.find()) {
-
                 JSONObject obj = lp.handler.apply(m, log);
                 if (obj == null) return null;
 
@@ -232,8 +264,7 @@ public class LogPreprocessor {
 
         for (String line : lines) {
 
-            if (line.matches("^\\d{4}-\\d{2}-\\d{2}.*")) {
-
+            if (isNewLogStart(line)) {
                 if (current.length() > 0) {
                     result.add(current.toString());
                     current.setLength(0);
@@ -248,6 +279,27 @@ public class LogPreprocessor {
         return result;
     }
 
+    private boolean isNewLogStart(String line) {
+        return line.matches("^\\d{4}-\\d{2}-\\d{2}.*")
+            || line.matches("^\\{.*\\}$")
+            || line.matches("^(info|error|warn|debug):.*")
+            || line.matches("^\\S+ \\S+ \\S+ \\[.*\\].*");
+    }
+
+    // =========================
+    //  노이즈 제거
+    // =========================
+    private boolean isNoise(String log) {
+
+        String lower = log.toLowerCase();
+
+        return lower.contains("healthcheck")
+            || lower.contains("heartbeat")
+            || lower.contains("metrics")
+            || lower.contains("favicon.ico")
+            || lower.contains("connection reset");
+    }
+
     // =========================
     // 전처리
     // =========================
@@ -257,16 +309,18 @@ public class LogPreprocessor {
 
         if (msg.contains("exception")) msg = "exception occurred";
 
-        msg = msg.replaceAll("\\d+", "<NUM>");
+        msg = msg.replaceAll("\\b\\d{10,}\\b", "<ID>");
+        msg = msg.replaceAll("\\b\\d{5,}\\b", "<NUM>");
+        msg = msg.replaceAll("\\b\\d+\\.\\d+\\.\\d+\\.\\d+\\b", "<IP>");
         msg = msg.replaceAll("user=\\w+", "user=<USER>");
         msg = msg.replaceAll("\\s+", " ").trim();
 
         obj.put("normalized", msg);
 
         // 이벤트 분류
-        if (msg.contains("login success")) obj.put("event", "login_success");
-        else if (msg.contains("login failed")) obj.put("event", "login_failed");
-        else if (msg.contains("order fail")) obj.put("event", "order_fail");
+        if (msg.contains("login") && msg.contains("success")) obj.put("event", "login_success");
+        else if (msg.contains("login") && msg.contains("fail")) obj.put("event", "login_failed");
+        else if (msg.contains("order") && msg.contains("fail")) obj.put("event", "order_fail");
         else if (msg.contains("database")) obj.put("event", "db_error");
         else if (msg.contains("exception")) obj.put("event", "exception");
         else if (msg.contains("http")) obj.put("event", "http");
@@ -283,7 +337,8 @@ public class LogPreprocessor {
     }
 
     // =========================
-    // 로그 레벨 필터링
+    // 로그 레벨 필터
+    // =========================
     private boolean isSkip(String level) {
         return "DEBUG".equalsIgnoreCase(level) || "TRACE".equalsIgnoreCase(level);
     }
