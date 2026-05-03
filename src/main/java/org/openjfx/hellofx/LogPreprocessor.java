@@ -1,7 +1,8 @@
 package org.openjfx.hellofx;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,24 +37,26 @@ import java.util.regex.*;
  */
 public class LogPreprocessor {
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     // =========================================================================
     // 내부 타입 정의
     // =========================================================================
 
     /**
      * 로그 패턴 핸들러 함수형 인터페이스.
-     *   반환값 JSONObject → 파싱 성공 (message 필드 필수)
+     *   반환값 ObjectNode → 파싱 성공 (message 필드 필수)
      *   반환값 null       → 해당 로그를 드롭 (isSkipLevel() 등에 의한 명시적 제외)
      */
     @FunctionalInterface
     private interface LogHandler {
-        JSONObject apply(Matcher m, String raw);
+        ObjectNode apply(Matcher m, String raw);
     }
 
     /**
      * 하나의 로그 형식을 나타내는 불변 구조체.
      * pattern : 형식 판별 정규식
-     * handler : 매칭 성공 시 JSONObject 로 변환하는 람다
+     * handler : 매칭 성공 시 ObjectNode 로 변환하는 람다
      */
     private static final class LogPattern {
         final Pattern    pattern;
@@ -180,18 +183,18 @@ public class LogPreprocessor {
             Pattern.compile("^\\{.*\\}$", Pattern.DOTALL),
             (m, log) -> {
                 try {
-                    JSONObject json  = new JSONObject(log);
-                    String     level = json.optString("level", "");
+                    ObjectNode json  = (ObjectNode) MAPPER.readTree(log);
+                    String     level = json.path("level").asText("");
                     if (isSkipLevel(level)) return null;
 
-                    JSONObject obj = new JSONObject();
-                    obj.put("message", json.optString("message", log));
+                    ObjectNode obj = MAPPER.createObjectNode();
+                    obj.put("message", json.path("message").asText(log));
                     obj.put("level",   level);
                     // 다양한 JSON 타임스탬프 필드명을 순서대로 시도
                     obj.put("timestamp", firstNonEmpty(
-                        json.optString("timestamp"),
-                        json.optString("time"),
-                        json.optString("@timestamp")
+                        json.path("timestamp").asText(""),
+                        json.path("time").asText(""),
+                        json.path("@timestamp").asText("")
                     ));
                     return obj;
                 } catch (Exception e) {
@@ -241,7 +244,7 @@ public class LogPreprocessor {
             ),
             (m, log) -> {
                 if (isSkipLevel(m.group(2))) return null;
-                JSONObject obj = new JSONObject();
+                ObjectNode obj = MAPPER.createObjectNode();
                 obj.put("timestamp", m.group(1).trim());
                 obj.put("level",     normalizePythonLevel(m.group(2).trim())); // CRITICAL→ERROR 등
                 obj.put("message",   m.group(3).trim());
@@ -261,7 +264,7 @@ public class LogPreprocessor {
             ),
             (m, log) -> {
                 if (isSkipLevel(m.group(1))) return null;
-                JSONObject obj = new JSONObject();
+                ObjectNode obj = MAPPER.createObjectNode();
                 obj.put("level",   m.group(1).toUpperCase()); // Java 레벨 표기와 통일
                 obj.put("message", m.group(2).trim());
                 return obj;
@@ -279,7 +282,7 @@ public class LogPreprocessor {
                 "\"(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\\s+(\\S+)\\s+\\S+\"\\s+(\\d{3})\\s+(\\d+|-)"
             ),
             (m, log) -> {
-                JSONObject obj = new JSONObject();
+                ObjectNode obj = MAPPER.createObjectNode();
                 obj.put("message",     "http " + m.group(3) + " " + m.group(4) + " " + m.group(5));
                 obj.put("http_method", m.group(3));
                 obj.put("http_status", m.group(5));
@@ -298,7 +301,7 @@ public class LogPreprocessor {
             Pattern.compile(".*(Exception|Error|Caused by):\\s*(.*)"),
             (m, log) -> {
                 String exMsg = m.group(2).trim();
-                JSONObject obj = new JSONObject();
+                ObjectNode obj = MAPPER.createObjectNode();
                 obj.put("message", m.group(1) + ": " + (exMsg.isEmpty() ? "unknown" : exMsg));
                 obj.put("level",   "ERROR"); // 예외는 항상 ERROR 레벨로 취급
                 return obj;
@@ -311,7 +314,7 @@ public class LogPreprocessor {
         list.add(new LogPattern(
             Pattern.compile("^(\\w+=[^,\\s]+(,\\s*\\w+=[^,\\s]+)*)$"),
             (m, log) -> {
-                JSONObject obj = new JSONObject();
+                ObjectNode obj = MAPPER.createObjectNode();
                 obj.put("message", log.trim());
                 return obj;
             }
@@ -331,14 +334,14 @@ public class LogPreprocessor {
      * @return AI 분석용 구조화 로그 JSON 배열
      * @throws IllegalArgumentException filePath 가 null 이거나 공백일 때
      */
-    public JSONArray processFile(String filePath) {
+    public ArrayNode processFile(String filePath) {
         if (filePath == null || filePath.isBlank()) {
             throw new IllegalArgumentException("filePath must not be null or blank");
         }
 
         duplicateFilter.reset();
 
-        JSONArray result = new JSONArray();
+        ArrayNode result = MAPPER.createArrayNode();
         int seq = 1;
 
         try {
@@ -346,9 +349,9 @@ public class LogPreprocessor {
             List<String> merged = mergeLogs(lines);
 
             for (String log : merged) {
-                JSONObject entry = processOne(log, seq);
+                ObjectNode entry = processOne(log, seq);
                 if (entry != null) {
-                    result.put(entry);
+                    result.add(entry);
                     seq++;
                 }
             }
@@ -367,7 +370,7 @@ public class LogPreprocessor {
      *
      * processFile() 의 루프 본문을 분리하여 가독성과 단위 테스트 편의성을 높인다.
      */
-    private JSONObject processOne(String log, int seq) {
+    private ObjectNode processOne(String log, int seq) {
 
         // ① 빈 줄 스킵
         if (log.isBlank()) return null;
@@ -376,11 +379,11 @@ public class LogPreprocessor {
         if (isNoise(log)) return null;
 
         // ③ 패턴 매칭 및 파싱 (실패 시 fallback 처리)
-        JSONObject parsed = parse(log);
+        ObjectNode parsed = parse(log);
         if (parsed == null) return null; // isSkipLevel()에 의한 명시적 드롭
 
-        String normalized = parsed.optString("normalized", "");
-        String level      = parsed.optString("level", "");
+        String normalized = parsed.path("normalized").asText("");
+        String level      = parsed.path("level").asText("");
 
         // ④ 의미 없는 메시지 제거 (너무 짧거나 무의미한 메시지)
         if (normalized.length() < 5 || normalized.equalsIgnoreCase("ok")) return null;
@@ -400,16 +403,19 @@ public class LogPreprocessor {
         // ⑦ 최종 출력 JSON 조립
         int frequency = duplicateFilter.getTemplateFrequency(template);
 
-        JSONObject ai = new JSONObject();
+        ArrayNode tokens = MAPPER.createArrayNode();
+        for (String t : template.split("\\s+")) tokens.add(t);
+
+        ObjectNode ai = MAPPER.createObjectNode();
         ai.put("sequence_id", seq);
-        ai.put("event",       parsed.optString("event", EVT_ETC));
+        ai.put("event",       parsed.path("event").asText(EVT_ETC));
         ai.put("level",       level);
-        ai.put("timestamp",   parsed.optString("timestamp", ""));
+        ai.put("timestamp",   parsed.path("timestamp").asText(""));
         ai.put("template",    template);
         ai.put("template_id", templateId);
         ai.put("frequency",   frequency);
         ai.put("normalized",  normalized);
-        ai.put("tokens",      new JSONArray(Arrays.asList(template.split("\\s+"))));
+        ai.set("tokens",      tokens);
 
         return ai;
     }
@@ -419,20 +425,20 @@ public class LogPreprocessor {
     // =========================================================================
 
     /**
-     * 단일 로그 문자열을 파싱하여 JSONObject 로 변환한다.
+     * 단일 로그 문자열을 파싱하여 ObjectNode 로 변환한다.
      *
      * 등록된 패턴을 순서대로 시도하며, 매칭되는 패턴이 없으면 fallback() 을 호출한다.
      * 패턴 핸들러가 null 을 반환하면 해당 로그를 드롭하기 위해 null 을 반환한다.
      * 파싱 성공 시 enrich() 를 호출하여 정규화 및 이벤트 분류를 수행한다.
      *
      * @param log 파싱할 단일 로그 문자열
-     * @return 파싱 + 정규화된 JSONObject, 드롭 대상이면 null
+     * @return 파싱 + 정규화된 ObjectNode, 드롭 대상이면 null
      */
-    private JSONObject parse(String log) {
+    private ObjectNode parse(String log) {
         for (LogPattern lp : patterns) {
             Matcher m = lp.pattern.matcher(log);
             if (m.find()) {
-                JSONObject obj = lp.handler.apply(m, log);
+                ObjectNode obj = lp.handler.apply(m, log);
                 if (obj == null) return null;
                 enrich(obj);
                 return obj;
@@ -450,12 +456,6 @@ public class LogPreprocessor {
      *
      * 스택트레이스, 멀티라인 메시지 등은 여러 줄에 걸쳐 있으나
      * 하나의 로그 이벤트이므로, 새 로그 시작 패턴이 나올 때까지 이전 줄을 이어붙인다.
-     *
-     * 예:
-     *   2024-01-01 ERROR - DB connection failed     ← 새 로그 시작
-     *   java.sql.SQLException: Timeout              ← 병합 대상
-     *       at com.example.DB.connect(DB.java:42)   ← 병합 대상
-     *   2024-01-01 INFO - Server started            ← 새 로그 시작 → 이전 것 완성
      *
      * @param lines 파일에서 읽은 원본 라인 목록
      * @return 병합된 로그 문자열 목록
@@ -478,20 +478,10 @@ public class LogPreprocessor {
 
     /**
      * 해당 줄이 새로운 로그의 시작인지 판별한다.
-     *
-     * 지원하는 새 로그 시작 패턴:
-     *   - 타임스탬프로 시작  (YYYY-MM-DD 또는 YYYY-MM-DDThh:mm:ss)
-     *   - JSON 객체로 시작   ({...)
-     *   - Node.js 레벨 접두어 (info:, error: 등)
-     *   - HTTP 접근 로그 형식 (IP - - [날짜] ...)
-     *   - Key=Value 형식
-     *
-     * @param line 검사할 줄
-     * @return 새 로그 시작이면 true
      */
     private boolean isNewLogStart(String line) {
         return line.matches("^\\d{4}-\\d{2}-\\d{2}[T ].*")             // 타임스탬프 시작
-            || line.startsWith("{")                                      // JSON (정규식보다 빠른 startsWith)
+            || line.startsWith("{")                                      // JSON
             || line.matches("(?i)^(info|error|warn|debug|verbose):.*")  // Node.js 레벨
             || line.matches("^\\S+\\s+\\S+\\s+\\S+\\s+\\[.*")          // HTTP 접근 로그
             || line.matches("^\\w+=.*");                                 // Key=Value
@@ -502,13 +492,13 @@ public class LogPreprocessor {
     // =========================================================================
 
     /**
-     * 파싱된 JSONObject 에 정규화(normalized)와 이벤트 분류(event)를 수행한다.
+     * 파싱된 ObjectNode 에 정규화(normalized)와 이벤트 분류(event)를 수행한다.
      * message 필드를 가공하여 normalized 와 event 필드를 추가한다.
      *
      * @param obj in-place 로 수정됨 (message 필드 필수)
      */
-    private void enrich(JSONObject obj) {
-        String raw        = obj.optString("message", "").toLowerCase().trim();
+    private void enrich(ObjectNode obj) {
+        String raw        = obj.path("message").asText("").toLowerCase().trim();
         String normalized = normalizeMessage(raw);
 
         obj.put("normalized", normalized);
@@ -522,9 +512,6 @@ public class LogPreprocessor {
      *   UUID → &lt;UUID&gt;     IP → &lt;IP&gt;     URL → &lt;URL&gt;
      *   EMAIL → &lt;EMAIL&gt;   ID(10+자리) → &lt;ID&gt;   NUM(5~9자리) → &lt;NUM&gt;
      *   user= → &lt;USER&gt;   password= / token= → &lt;MASKED&gt;   경로 → &lt;PATH&gt;
-     *
-     * Exception 메시지는 단순화하여 템플릿 추출 효율을 높인다.
-     * 예: "java.lang.NullPointerException: ..." → "exception occurred: nullpointerexception"
      */
     private String normalizeMessage(String raw) {
         if (raw.contains("exception") || raw.contains("caused by")) {
@@ -555,7 +542,7 @@ public class LogPreprocessor {
      * @param msg 정규화된 소문자 메시지
      * @return 이벤트 유형 문자열
      */
-    private String classifyEvent(JSONObject obj, String msg) {
+    private String classifyEvent(ObjectNode obj, String msg) {
 
         // ── 로그인 / 로그아웃 ─────────────────────────────────────────────
         if (msg.contains("login")) {
@@ -586,7 +573,7 @@ public class LogPreprocessor {
 
         // ── HTTP ──────────────────────────────────────────────────────────
         if (msg.startsWith("http ")) {
-            return classifyHttpEvent(obj.optString("http_status", ""));
+            return classifyHttpEvent(obj.path("http_status").asText(""));
         }
 
         // ── 생명주기 ──────────────────────────────────────────────────────
@@ -608,8 +595,8 @@ public class LogPreprocessor {
      * 어떤 패턴에도 매칭되지 않은 로그를 처리하는 최후 수단(fallback).
      * 원본 로그 전체를 message 로 설정하고 enrich() 를 통해 정규화 및 이벤트 분류를 시도한다.
      */
-    private JSONObject fallback(String log) {
-        JSONObject obj = new JSONObject();
+    private ObjectNode fallback(String log) {
+        ObjectNode obj = MAPPER.createObjectNode();
         obj.put("message", log.trim());
         enrich(obj);
         return obj;
@@ -694,13 +681,6 @@ public class LogPreprocessor {
     /**
      * 예외 메시지에서 예외 클래스 이름만 추출하여 반환한다.
      * 패키지 경로를 제거하고 소문자로 통일한다.
-     *
-     * 예:
-     *   "java.lang.NullPointerException: ..." → "nullpointerexception"
-     *   "org.hibernate.HibernateException"    → "hibernateexception"
-     *
-     * @param msg 예외가 포함된 로그 메시지 (소문자 변환 상태)
-     * @return 예외 클래스 단순명 (소문자), 추출 실패 시 "unknown"
      */
     private static String extractExceptionType(String msg) {
         Matcher m = RE_EXCEPTION_TYPE.matcher(msg);
@@ -719,12 +699,12 @@ public class LogPreprocessor {
     // =========================================================================
 
     /**
-     * Spring Logback 패턴 공통 필드를 채운 JSONObject 를 생성한다.
+     * Spring Logback 패턴 공통 필드를 채운 ObjectNode 를 생성한다.
      * 패턴 2, 패턴 3 의 중복 코드를 줄이기 위해 사용한다.
      */
-    private static JSONObject buildLogObj(String timestamp, String level,
+    private static ObjectNode buildLogObj(String timestamp, String level,
                                           String thread, String logger, String message) {
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = MAPPER.createObjectNode();
         obj.put("timestamp", timestamp.trim());
         obj.put("level",     level.trim());
         obj.put("thread",    thread.trim());
@@ -736,8 +716,6 @@ public class LogPreprocessor {
     /**
      * 주어진 문자열 중 첫 번째로 비어있지 않은 값을 반환한다.
      * 모두 비어있으면 빈 문자열을 반환한다.
-     *
-     * JSON 패턴에서 타임스탬프 필드명이 시스템마다 다를 때 폴백 탐색에 사용한다.
      */
     private static String firstNonEmpty(String... candidates) {
         for (String s : candidates) {

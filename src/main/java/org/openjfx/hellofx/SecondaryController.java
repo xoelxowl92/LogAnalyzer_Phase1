@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.json.JSONArray;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -16,6 +16,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -117,8 +119,8 @@ public class SecondaryController {
             try {
                 // 1. 로그 전처리
                 LogPreprocessor preprocessor = new LogPreprocessor();
-                JSONArray preprocessed = preprocessor.processFile(App.currentFilePath);
-                String preprocessedText = preprocessed.toString(2);
+                ArrayNode preprocessed = preprocessor.processFile(App.currentFilePath);
+                String preprocessedText = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(preprocessed);
 
                 System.out.println("=== 전처리 결과 ===");
                 System.out.println(preprocessedText);
@@ -483,9 +485,27 @@ public class SecondaryController {
     // 일반 유틸리티
     // =========================================================================
 
-    /** application-dev.properties 를 로드하여 반환한다 */
+    /** application-dev.properties 를 로드하여 반환한다.
+     *  exe 옆에 파일이 있으면 우선 사용하고, 없으면 내장 리소스를 사용한다. */
     private Properties loadProps() {
         Properties props = new Properties();
+
+        // $APPDIR = LogAnalyzer/app/ 이므로 getParent() = exe 가 있는 LogAnalyzer/
+        String appDir = System.getProperty("app.dir", "");
+        Path searchDir = appDir.isEmpty()
+            ? Path.of(System.getProperty("user.dir"))
+            : Path.of(appDir).getParent();
+        Path external = searchDir.resolve("application-dev.properties");
+        if (Files.exists(external)) {
+            try (InputStream in = Files.newInputStream(external)) {
+                props.load(in);
+                return props;
+            } catch (Exception e) {
+                System.err.println("외부 properties 로드 실패: " + e.getMessage());
+            }
+        }
+
+        // 내장 리소스 fallback
         try (InputStream in = getClass().getResourceAsStream("/application-dev.properties")) {
             if (in != null) props.load(in);
         } catch (Exception e) {
