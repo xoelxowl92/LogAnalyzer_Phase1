@@ -19,6 +19,10 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.HttpURLConnection;
+import javax.net.ssl.HttpsURLConnection;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.*;
+
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -86,6 +90,7 @@ public class SecondaryController {
 
     @FXML
     private void initialize() {
+        trustAllCertificates();
         breadcrumbLabel.setText(App.currentDate + "_" + App.currentFile);
 
         Properties props = loadProps();
@@ -512,6 +517,25 @@ public class SecondaryController {
             System.err.println("properties 로드 실패: " + e.getMessage());
         }
         return props;
+    }
+
+    /** SSL 인증서 검증을 비활성화한다 (내부 서버 전용) */
+    private static void trustAllCertificates() {
+        try {
+            TrustManager[] trustAll = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                    public void checkClientTrusted(X509Certificate[] c, String a) {}
+                    public void checkServerTrusted(X509Certificate[] c, String a) {}
+                }
+            };
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, trustAll, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+            HttpsURLConnection.setDefaultHostnameVerifier((host, session) -> true);
+        } catch (Exception e) {
+            System.err.println("SSL 설정 실패: " + e.getMessage());
+        }
     }
 
     /** 재시도 대상 상태코드 여부 확인 */

@@ -8,6 +8,8 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.image.Image?>
 
 <BorderPane xmlns="http://javafx.com/javafx/8.0.171"
             xmlns:fx="http://javafx.com/fxml/1"
@@ -18,7 +20,12 @@
     <!-- 헤더 (뒤로가기 + 파일명 + 탭) -->
     <top>
         <VBox styleClass="results-header">
-            <Button text="← Menu" styleClass="back-button" onAction="#switchToPrimary"/>
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <ImageView fitWidth="36" fitHeight="36" preserveRatio="true">
+                    <image><Image url="@logo.png"/></image>
+                </ImageView>
+                <Button text="← Menu" styleClass="back-button" onAction="#switchToPrimary"/>
+            </HBox>
             <Label fx:id="breadcrumbLabel" text="" styleClass="breadcrumb-label"/>
             <HBox styleClass="tab-bar">
                 <Button fx:id="tabSuspected" text="Suspected Logs"
